@@ -1,0 +1,16 @@
+{
+  "name": "bingo-generator",
+  "version": "1.0.0",
+  "description": "Generates a 5x5 Bingo card from a list of activities.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "toml": "^3.0.0"
+  },
+  "author": "",
+  "license": "ISC"
+}
