@@ -8,16 +8,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalMessage = document.getElementById("modal-message");
   const modalConfirmBtn = document.getElementById("modal-confirm-btn");
   const modalCancelBtn = document.getElementById("modal-cancel-btn");
-  const modalContent = modal ? modal.querySelector(".modal-content") : null; // Get modal-content div
+  const modalContent = modal ? modal.querySelector(".modal-content") : null;
 
   let isBingoAchievedGlobal = false;
   let currentOnConfirmCallback = null;
 
-  // --- Modal Functions ---
   function showConfirmationModal(message, onConfirm, event) {
     if (!modal || !modalMessage || !modalContent) {
       console.error("Modal elements not found for showConfirmationModal.");
-      if (onConfirm) onConfirm(); // Fallback: directly execute confirm action if modal is broken
+      if (onConfirm) onConfirm();
       return;
     }
 
@@ -25,43 +24,36 @@ document.addEventListener("DOMContentLoaded", () => {
     currentOnConfirmCallback = onConfirm;
 
     if (event && event.target) {
-      const targetRect = event.target.getBoundingClientRect(); // Position of the clicked button/cell
+      const targetRect = event.target.getBoundingClientRect();
 
-      // Temporarily make modalContent visible to get its dimensions, then hide it
-      // This is a common trick if dimensions are not fixed.
       modalContent.style.visibility = "hidden";
-      modalContent.style.display = "block"; // Ensure it's block for offsetWidth/Height
+      modalContent.style.display = "block";
       const modalWidth = modalContent.offsetWidth;
       const modalHeight = modalContent.offsetHeight;
-      modalContent.style.visibility = ""; // Revert
-      modalContent.style.display = ""; // Revert
+      modalContent.style.visibility = "";
+      modalContent.style.display = "";
 
-      // Attempt to position below and slightly to the right of the clicked element's center
-      let top = targetRect.top + targetRect.height / 2 + 10; // 10px below center
-      let left = targetRect.left + targetRect.width / 2 + 10; // 10px right of center
+      let top = targetRect.top + targetRect.height / 2 + 10;
+      let left = targetRect.left + targetRect.width / 2 + 10;
 
-      // Adjust if modal goes off-screen
       if (left + modalWidth > window.innerWidth) {
-        left = window.innerWidth - modalWidth - 20; // 20px margin from right edge
+        left = window.innerWidth - modalWidth - 20;
       }
       if (top + modalHeight > window.innerHeight) {
-        top = window.innerHeight - modalHeight - 20; // 20px margin from bottom edge
+        top = window.innerHeight - modalHeight - 20;
       }
-      // Ensure it doesn't go off-screen left/top
-      left = Math.max(20, left); // 20px margin from left edge
-      top = Math.max(20, top); // 20px margin from top edge
+      left = Math.max(20, left);
+      top = Math.max(20, top);
 
       modalContent.style.top = `${top}px`;
       modalContent.style.left = `${left}px`;
     } else {
-      // Fallback to center if no event target (should not happen for cell clicks)
       modalContent.style.top = "50%";
       modalContent.style.left = "50%";
       modalContent.style.transform = "translate(-50%, -50%)";
     }
 
     modal.classList.remove("hidden");
-    // Trigger reflow for transition
     void modal.offsetWidth;
     modal.classList.add("opacity-100");
     modalContent.classList.remove("scale-95", "opacity-0");
@@ -80,7 +72,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setTimeout(() => {
       modal.classList.add("hidden");
       currentOnConfirmCallback = null;
-      // Reset position for next time, so it doesn't briefly show at old spot if centered fallback was used
       modalContent.style.top = "";
       modalContent.style.left = "";
       modalContent.style.transform = "";
@@ -108,7 +99,6 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
-  // --- Bingo Logic ---
   const WINNING_COMBINATIONS = [
     [0, 1, 2, 3, 4],
     [5, 6, 7, 8, 9],
@@ -167,7 +157,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return false;
   }
 
-  // --- Board Rendering and Interaction ---
   function clearBoardDisplay(
     message = 'Click "Generate New Board" to start or load your saved game.'
   ) {
@@ -296,8 +285,18 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       button.addEventListener("click", (event) => {
-        // Pass event to showConfirmationModal
-        if (isBingoAchievedGlobal || activityText === "Empty") return;
+        // Prevent interaction if bingo achieved, or cell is empty or FREE SPACE
+        if (
+          isBingoAchievedGlobal ||
+          activityText === "Empty" ||
+          activityText === "FREE SPACE"
+        ) {
+          if (activityText === "FREE SPACE") {
+            // Optionally, briefly indicate it's a free space if clicked, but don't change state
+            // For now, just returning effectively makes it non-interactive for state changes.
+          }
+          return;
+        }
 
         const currentMarkedStatus = cell.classList.contains("marked");
         const actionText = currentMarkedStatus ? "unmark" : "mark";
@@ -313,7 +312,7 @@ document.addEventListener("DOMContentLoaded", () => {
               button.classList.remove("text-gray-700", "hover:bg-blue-100");
               button.classList.add(
                 activityText === "FREE SPACE" ? "text-slate-800" : "text-white"
-              );
+              ); // This condition is now less relevant here due to the guard above
             } else {
               button.classList.remove("text-white");
               button.classList.add(
@@ -321,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   ? "text-slate-800"
                   : "text-gray-700",
                 "hover:bg-blue-100"
-              );
+              ); // Same here
             }
 
             if (saveStatusEl) saveStatusEl.textContent = "Saving...";
@@ -404,7 +403,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
           },
           event
-        ); // Pass the event object here
+        );
       });
       cell.appendChild(button);
       bingoCardContainer.appendChild(cell);

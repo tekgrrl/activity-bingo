@@ -125,7 +125,7 @@ app.get("/generate-bingo", async (req, res) => {
 
     // For each *type* of repeatable activity, add it 1 to 3 times randomly to the pool
     repeatableActivities.forEach((text) => {
-      const timesToAdd = Math.floor(Math.random() * 3) + 1; // Randomly 1, 2, or 3
+      const timesToAdd = Math.floor(Math.random() * 2) + 1; // Randomly 1 or 2
       for (let i = 0; i < timesToAdd; i++) {
         candidatePool.push({ text: text, isOriginallyRepeatable: true });
       }
@@ -190,25 +190,18 @@ app.get("/generate-bingo", async (req, res) => {
   } catch (error) {
     console.error("Error generating bingo board:", error);
     if (error.code === "ENOENT" && error.path === ACTIVITIES_FILE_PATH) {
-      res
-        .status(500)
-        .json({
-          error:
-            "Activities file (activities.toml) not found. Please create it.",
-        });
+      res.status(500).json({
+        error: "Activities file (activities.toml) not found. Please create it.",
+      });
     } else if (error.message.includes("TOML Parse Error")) {
-      res
-        .status(500)
-        .json({
-          error: "Error parsing activities.toml. Please check its format.",
-        });
+      res.status(500).json({
+        error: "Error parsing activities.toml. Please check its format.",
+      });
     } else {
-      res
-        .status(500)
-        .json({
-          error:
-            "Failed to generate bingo board due to an internal server error.",
-        });
+      res.status(500).json({
+        error:
+          "Failed to generate bingo board due to an internal server error.",
+      });
     }
   }
 });
@@ -251,11 +244,9 @@ app.post("/mark-cell", async (req, res) => {
     return res.status(400).json({ error: "Invalid cell index provided." });
   }
   if (typeof isMarked !== "boolean") {
-    return res
-      .status(400)
-      .json({
-        error: "Invalid marked status provided (must be true or false).",
-      });
+    return res.status(400).json({
+      error: "Invalid marked status provided (must be true or false).",
+    });
   }
 
   currentBingoState.markedCells[index] = isMarked;
