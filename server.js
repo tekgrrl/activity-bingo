@@ -68,14 +68,9 @@ function shuffleArray(array) {
   }
 }
 
-/**
- * Parses activities from TOML content.
- * @param {object} tomlContent - Parsed TOML data.
- * @returns {{nonRepeatableActivities: string[], repeatableActivities: string[]}}
- */
 function parseActivities(tomlContent) {
   const nonRepeatableActivityTexts = [];
-  const repeatableActivityTexts = []; // Stores unique texts of repeatable activities
+  const repeatableActivityTexts = [];
   const repeatableRegex = /\s*\(repeatable\)$/i;
 
   if (tomlContent.activities && Array.isArray(tomlContent.activities)) {
@@ -86,12 +81,10 @@ function parseActivities(tomlContent) {
         if (text) {
           if (isRepeatable) {
             if (!repeatableActivityTexts.includes(text)) {
-              // Store unique texts
               repeatableActivityTexts.push(text);
             }
           } else {
             if (!nonRepeatableActivityTexts.includes(text)) {
-              // Store unique texts
               nonRepeatableActivityTexts.push(text);
             }
           }
@@ -110,75 +103,61 @@ app.get("/generate-bingo", async (req, res) => {
   try {
     const fileContent = fs.readFileSync(ACTIVITIES_FILE_PATH, "utf-8");
     const tomlData = toml.parse(fileContent);
-    // nonRepeatableActivities will be an array of unique activity strings.
-    // repeatableActivities will be an array of unique repeatable activity strings.
     const { nonRepeatableActivities, repeatableActivities } =
       parseActivities(tomlData);
 
-    // 1. Create an expanded candidate pool
     let candidatePool = [];
-
-    // Add non-repeatable activities (as objects to distinguish their original type if needed, though text is primary)
     nonRepeatableActivities.forEach((text) => {
       candidatePool.push({ text: text, isOriginallyRepeatable: false });
     });
-
-    // For each *type* of repeatable activity, add it 1 to 3 times randomly to the pool
     repeatableActivities.forEach((text) => {
-      const timesToAdd = Math.floor(Math.random() * 2) + 1; // Randomly 1 or 2
+      const timesToAdd = Math.floor(Math.random() * 3) + 1;
       for (let i = 0; i < timesToAdd; i++) {
         candidatePool.push({ text: text, isOriginallyRepeatable: true });
       }
     });
 
-    // 2. Shuffle this candidate pool
     shuffleArray(candidatePool);
 
-    // 3. Select 24 activities for the board from the shuffled pool, respecting constraints
-    let bingoSlotsTexts = []; // This will hold the texts for the board
-    const boardActivityCounts = new Map(); // Tracks counts of activity *texts* on the board
+    let bingoSlotsTexts = [];
+    const boardActivityCounts = new Map();
 
     for (const poolEntry of candidatePool) {
-      if (bingoSlotsTexts.length >= 24) {
-        break; // Board is full
-      }
+      if (bingoSlotsTexts.length >= 24) break;
 
       const activityText = poolEntry.text;
       const isFromRepeatableList = poolEntry.isOriginallyRepeatable;
       const currentCountOnBoard = boardActivityCounts.get(activityText) || 0;
 
       if (isFromRepeatableList) {
-        // This activity text comes from the original list of repeatable activities
         if (currentCountOnBoard < 3) {
           bingoSlotsTexts.push(activityText);
           boardActivityCounts.set(activityText, currentCountOnBoard + 1);
         }
       } else {
-        // This activity text comes from the original list of non-repeatable activities
         if (currentCountOnBoard < 1) {
-          // Non-repeatable can only appear once
           bingoSlotsTexts.push(activityText);
           boardActivityCounts.set(activityText, currentCountOnBoard + 1);
         }
       }
     }
 
-    // 4. Prepare final 24 slots, filling with "Empty" if not enough were selected
     const finalActivitySlots = new Array(24).fill("Empty");
     for (let i = 0; i < Math.min(24, bingoSlotsTexts.length); i++) {
       finalActivitySlots[i] = bingoSlotsTexts[i];
     }
 
-    // 5. Construct the 5x5 board with "FREE SPACE"
     const newBoardActivities = new Array(25);
     let activityIdx = 0;
     for (let i = 0; i < 25; i++) {
+      // Center square (index 12) is now "TABLE STAKES"
       newBoardActivities[i] =
-        i === 12 ? "FREE SPACE" : finalActivitySlots[activityIdx++];
+        i === 12 ? "TABLE STAKES" : finalActivitySlots[activityIdx++];
     }
 
+    // "TABLE STAKES" is now initially unmarked like other squares
     const newMarkedCells = new Array(25).fill(false);
-    if (newBoardActivities[12] === "FREE SPACE") newMarkedCells[12] = true;
+    // No need to pre-mark index 12: if (newBoardActivities[12] === "TABLE STAKES") newMarkedCells[12] = true;
 
     const newState = {
       boardActivities: newBoardActivities,
@@ -190,18 +169,25 @@ app.get("/generate-bingo", async (req, res) => {
   } catch (error) {
     console.error("Error generating bingo board:", error);
     if (error.code === "ENOENT" && error.path === ACTIVITIES_FILE_PATH) {
-      res.status(500).json({
-        error: "Activities file (activities.toml) not found. Please create it.",
-      });
+      res
+        .status(500)
+        .json({
+          error:
+            "Activities file (activities.toml) not found. Please create it.",
+        });
     } else if (error.message.includes("TOML Parse Error")) {
-      res.status(500).json({
-        error: "Error parsing activities.toml. Please check its format.",
-      });
+      res
+        .status(500)
+        .json({
+          error: "Error parsing activities.toml. Please check its format.",
+        });
     } else {
-      res.status(500).json({
-        error:
-          "Failed to generate bingo board due to an internal server error.",
-      });
+      res
+        .status(500)
+        .json({
+          error:
+            "Failed to generate bingo board due to an internal server error.",
+        });
     }
   }
 });
@@ -244,12 +230,17 @@ app.post("/mark-cell", async (req, res) => {
     return res.status(400).json({ error: "Invalid cell index provided." });
   }
   if (typeof isMarked !== "boolean") {
-    return res.status(400).json({
-      error: "Invalid marked status provided (must be true or false).",
-    });
+    return res
+      .status(400)
+      .json({
+        error: "Invalid marked status provided (must be true or false).",
+      });
   }
 
+  // No special server-side handling needed for "TABLE STAKES" being unmarkable,
+  // as it's now a regular square. Client-side logic handles clicks.
   currentBingoState.markedCells[index] = isMarked;
+
   if (typeof isBingoAchievedByThisMove === "boolean") {
     currentBingoState.isBingoAchieved = isBingoAchievedByThisMove;
   }

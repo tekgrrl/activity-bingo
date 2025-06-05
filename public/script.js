@@ -10,9 +10,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const modalCancelBtn = document.getElementById("modal-cancel-btn");
   const modalContent = modal ? modal.querySelector(".modal-content") : null;
 
-  let isBingoAchievedGlobal = false;
+  let isBingoAchievedGlobal = false; // Client-side flag, synchronized with server state.
   let currentOnConfirmCallback = null;
 
+  // --- Modal Functions ---
   function showConfirmationModal(message, onConfirm, event) {
     if (!modal || !modalMessage || !modalContent) {
       console.error("Modal elements not found for showConfirmationModal.");
@@ -99,6 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
     );
   }
 
+  // --- Bingo Logic ---
   const WINNING_COMBINATIONS = [
     [0, 1, 2, 3, 4],
     [5, 6, 7, 8, 9],
@@ -141,22 +143,26 @@ document.addEventListener("DOMContentLoaded", () => {
     if (newBoardBtn) newBoardBtn.focus();
   }
 
-  function checkAndProcessBingo(markedCells, boardActivities) {
-    if (isBingoAchievedGlobal) return true;
-
-    const winningLines = getWinningLines(markedCells);
+  /**
+   * Applies visual effects if a bingo is detected based on currentMarkedCells.
+   * This function is called when bingo status is confirmed (either by server or on load).
+   * @param {boolean[]} currentMarkedCells - The current state of marked cells.
+   * @returns {boolean} True if bingo visuals were applied, false otherwise.
+   */
+  function applyBingoVisualsAndLock(currentMarkedCells) {
+    const winningLines = getWinningLines(currentMarkedCells);
     if (winningLines.length > 0) {
-      isBingoAchievedGlobal = true;
       highlightWinningLines(winningLines);
       lockBoard();
       if (messageArea)
         messageArea.innerHTML = `<strong class="text-2xl text-yellow-400 animate-pulse">BINGO!</strong>`;
       if (saveStatusEl) saveStatusEl.textContent = "BINGO! Board Locked.";
-      return true;
+      return true; // Bingo visuals applied
     }
-    return false;
+    return false; // No bingo visuals applied
   }
 
+  // --- Board Rendering and Interaction ---
   function clearBoardDisplay(
     message = 'Click "Generate New Board" to start or load your saved game.'
   ) {
@@ -186,15 +192,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (boardState && boardState.boardActivities) {
         isBingoAchievedGlobal = boardState.isBingoAchieved || false;
-        renderBoard(boardState);
+        renderBoard(boardState); // Render first, it respects isBingoAchievedGlobal for disabling buttons
 
         if (isBingoAchievedGlobal) {
-          const winningLines = getWinningLines(boardState.markedCells);
-          if (winningLines.length > 0) highlightWinningLines(winningLines);
-          lockBoard();
-          if (messageArea)
-            messageArea.innerHTML = `<strong class="text-2xl text-yellow-400 animate-pulse">BINGO!</strong>`;
-          if (saveStatusEl) saveStatusEl.textContent = "BINGO! Board Locked.";
+          // If loaded state says bingo, apply visuals.
+          applyBingoVisualsAndLock(boardState.markedCells);
         } else {
           if (messageArea) messageArea.textContent = "Loaded saved board!";
           if (saveStatusEl) saveStatusEl.textContent = "Game loaded.";
@@ -267,34 +269,19 @@ document.addEventListener("DOMContentLoaded", () => {
         button.classList.add("text-gray-700", "hover:bg-blue-100");
       }
 
-      if (activityText === "FREE SPACE") {
-        cell.classList.add("free-space");
-        if (cell.classList.contains("marked")) {
-          button.classList.remove("text-gray-700", "hover:bg-blue-100");
-          button.classList.add("text-slate-800");
-        } else {
-          button.classList.add("text-slate-800");
-        }
-      } else if (activityText === "Empty") {
+      if (activityText === "Empty") {
         button.classList.add("text-gray-400", "italic");
         button.disabled = true;
       }
 
+      // Disable button if bingo is already achieved globally.
+      // This is set by loadInitialBoard or after a server /mark-cell response.
       if (isBingoAchievedGlobal) {
         button.disabled = true;
       }
 
       button.addEventListener("click", (event) => {
-        // Prevent interaction if bingo achieved, or cell is empty or FREE SPACE
-        if (
-          isBingoAchievedGlobal ||
-          activityText === "Empty" ||
-          activityText === "FREE SPACE"
-        ) {
-          if (activityText === "FREE SPACE") {
-            // Optionally, briefly indicate it's a free space if clicked, but don't change state
-            // For now, just returning effectively makes it non-interactive for state changes.
-          }
+        if (isBingoAchievedGlobal || activityText === "Empty") {
           return;
         }
 
@@ -307,30 +294,26 @@ document.addEventListener("DOMContentLoaded", () => {
           async () => {
             const newMarkedStatus = !currentMarkedStatus;
 
+            // Optimistic UI update for the clicked cell
             cell.classList.toggle("marked", newMarkedStatus);
             if (newMarkedStatus) {
               button.classList.remove("text-gray-700", "hover:bg-blue-100");
-              button.classList.add(
-                activityText === "FREE SPACE" ? "text-slate-800" : "text-white"
-              ); // This condition is now less relevant here due to the guard above
+              button.classList.add("text-white");
             } else {
               button.classList.remove("text-white");
-              button.classList.add(
-                activityText === "FREE SPACE"
-                  ? "text-slate-800"
-                  : "text-gray-700",
-                "hover:bg-blue-100"
-              ); // Same here
+              button.classList.add("text-gray-700", "hover:bg-blue-100");
             }
 
             if (saveStatusEl) saveStatusEl.textContent = "Saving...";
-            let bingoAchievedThisMove = false;
+
+            // Determine if this optimistic move *would* achieve bingo
+            let optimisticBingoAchieved = false;
             if (newMarkedStatus) {
               const tempMarkedCells = Array.from(
                 bingoCardContainer.querySelectorAll(".bingo-cell")
-              ).map((c) => c.classList.contains("marked"));
+              ).map((c) => c.classList.contains("marked")); // Get current UI state
               if (getWinningLines(tempMarkedCells).length > 0) {
-                bingoAchievedThisMove = true;
+                optimisticBingoAchieved = true;
               }
             }
 
@@ -341,7 +324,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 body: JSON.stringify({
                   index: index,
                   isMarked: newMarkedStatus,
-                  isBingoAchievedByThisMove: bingoAchievedThisMove,
+                  isBingoAchievedByThisMove: optimisticBingoAchieved, // Inform server
                 }),
               });
               const responseData = await response.json();
@@ -351,45 +334,34 @@ document.addEventListener("DOMContentLoaded", () => {
                 );
               }
 
-              const serverMarkedCells = responseData.markedCells;
-              isBingoAchievedGlobal = responseData.isBingoAchieved;
+              // Server has confirmed. Update client state based on server's response.
+              const serverConfirmedMarkedCells = responseData.markedCells;
+              isBingoAchievedGlobal = responseData.isBingoAchieved; // Update global source of truth
 
-              if (checkAndProcessBingo(serverMarkedCells, boardActivities)) {
-                // Bingo processed
+              // If server confirms bingo, apply visuals using server's state.
+              if (isBingoAchievedGlobal) {
+                applyBingoVisualsAndLock(serverConfirmedMarkedCells);
               } else {
                 if (saveStatusEl) saveStatusEl.textContent = "Saved!";
               }
+
+              // Note: If serverConfirmedMarkedCells differs from optimistic UI (besides the clicked cell),
+              // a full re-render or more targeted update might be needed for robustness,
+              // but current flow assumes server confirms the optimistic change or a bingo.
             } catch (err) {
               console.error("Failed to update mark on server:", err);
               if (messageArea)
                 messageArea.textContent = `Save error: ${err.message}. Reverting.`;
               if (saveStatusEl) saveStatusEl.textContent = "Save failed!";
 
+              // Revert optimistic UI change on error
               cell.classList.toggle("marked", !newMarkedStatus);
               if (newMarkedStatus) {
-                button.classList.remove(
-                  activityText === "FREE SPACE"
-                    ? "text-slate-800"
-                    : "text-white"
-                );
-                button.classList.add(
-                  activityText === "FREE SPACE"
-                    ? "text-slate-800"
-                    : "text-gray-700",
-                  "hover:bg-blue-100"
-                );
+                button.classList.remove("text-white");
+                button.classList.add("text-gray-700", "hover:bg-blue-100");
               } else {
-                button.classList.remove(
-                  activityText === "FREE SPACE"
-                    ? "text-slate-800"
-                    : "text-gray-700",
-                  "hover:bg-blue-100"
-                );
-                button.classList.add(
-                  activityText === "FREE SPACE"
-                    ? "text-slate-800"
-                    : "text-white"
-                );
+                button.classList.remove("text-gray-700", "hover:bg-blue-100");
+                button.classList.add("text-white");
               }
             } finally {
               if (!isBingoAchievedGlobal && saveStatusEl) {
