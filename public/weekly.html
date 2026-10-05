@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Achievements</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #0f172a; }
+
+    .card {
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      min-height: 160px;
+    }
+    .card.locked {
+      background: #1e293b;
+      border: 1px solid #334155;
+    }
+    .card.unlocked {
+      background: linear-gradient(135deg, #d97706, #f59e0b, #fbbf24);
+      border: 1px solid #fbbf24;
+      box-shadow: 0 0 20px rgba(251, 191, 36, 0.3);
+    }
+    .card.unlocked:hover {
+      transform: scale(1.02);
+      box-shadow: 0 0 30px rgba(251, 191, 36, 0.5);
+    }
+
+    .progress-bar-fill {
+      transition: width 0.6s ease;
+    }
+
+    @keyframes celebrate {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.03); }
+    }
+    .week-complete-card {
+      animation: celebrate 2s ease-in-out infinite;
+    }
+
+    @keyframes glow-pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(251, 191, 36, 0.3); }
+      50%       { box-shadow: 0 0 40px rgba(251, 191, 36, 0.7); }
+    }
+    .week-complete .card.unlocked {
+      animation: glow-pulse 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-white p-4 sm:p-6">
+
+  <div class="max-w-xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-6">
+      <a href="/" class="text-slate-400 hover:text-slate-200 text-sm transition-colors">← Daily Board</a>
+    </div>
+
+    <div id="week-complete-banner" class="hidden mb-6 rounded-2xl p-6 text-center week-complete-card"
+      style="background: linear-gradient(135deg, #78350f, #d97706, #fbbf24, #d97706, #78350f);">
+      <div class="text-4xl mb-2">🏅</div>
+      <div class="text-2xl font-bold text-yellow-900">Week Complete!</div>
+      <div class="text-yellow-800 text-sm mt-1">You cleared all 8 achievements. Exceptional.</div>
+    </div>
+
+    <header class="mb-6">
+      <h1 class="text-3xl font-bold text-white">Weekly Achievements</h1>
+      <p id="week-range" class="text-slate-400 text-sm mt-1"></p>
+      <p id="goal-display" class="text-slate-300 text-sm mt-2 italic"></p>
+
+      <!-- Progress -->
+      <div class="mt-4">
+        <div class="flex justify-between text-xs text-slate-400 mb-1">
+          <span id="progress-label">0 / 8 unlocked</span>
+          <span id="progress-pct">0%</span>
+        </div>
+        <div class="w-full bg-slate-700 rounded-full h-2">
+          <div id="progress-fill" class="progress-bar-fill bg-amber-400 h-2 rounded-full" style="width: 0%"></div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Achievement grid -->
+    <div id="achievement-grid" class="grid grid-cols-2 gap-3 sm:gap-4">
+      <div class="col-span-2 text-center text-slate-500 py-12">Loading…</div>
+    </div>
+
+    <footer class="mt-8 text-center text-xs text-slate-600 space-y-1">
+      <p>Manual achievements require Claude verification — use <code class="bg-slate-800 px-1 rounded">/weekly-checkin</code></p>
+      <p>Set your weekly goal with <code class="bg-slate-800 px-1 rounded">/weekly-setup</code></p>
+    </footer>
+
+  </div>
+
+  <script src="weekly.js"></script>
+</body>
+</html>

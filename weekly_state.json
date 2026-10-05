@@ -1,0 +1,49 @@
+{
+  "weekStart": "2026-10-05",
+  "weeklyGoal": null,
+  "dailyResults": [],
+  "achievements": {
+    "readBook": {
+      "completed": false,
+      "evidence": null,
+      "completedAt": null
+    },
+    "listenedBook": {
+      "completed": false,
+      "evidence": null,
+      "completedAt": null
+    },
+    "studyGoal": {
+      "completed": false,
+      "evidence": null,
+      "completedAt": null
+    },
+    "businessGoal": {
+      "completed": false,
+      "evidence": null,
+      "completedAt": null
+    },
+    "won6of7": {
+      "completed": false,
+      "evidence": null,
+      "completedAt": null
+    },
+    "tableStakes7of7": {
+      "completed": false,
+      "evidence": null,
+      "completedAt": null
+    },
+    "mustDosCleared": {
+      "completed": false,
+      "evidence": null,
+      "completedAt": null
+    },
+    "weeklyGoal": {
+      "completed": false,
+      "evidence": null,
+      "completedAt": null
+    }
+  },
+  "weekCompleted": false,
+  "weekCompletedAt": null
+}

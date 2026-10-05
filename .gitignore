@@ -137,6 +137,8 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
 activities.toml
 activities-mandy.toml
 bingo_state.json
+settings.local.json
