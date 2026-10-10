@@ -55,7 +55,11 @@ function buildNoteMap(tomlData, boardActivities) {
   const vaultName = getVaultName();
   if (!vaultDir || !vaultName) return {};
   let realVaultDir = vaultDir;
-  try { realVaultDir = fs.realpathSync(vaultDir); } catch {}
+  try { realVaultDir = fs.realpathSync(vaultDir); 
+
+  } catch(e) { 
+    console.error(e.message);
+  }
   const activityPages = tomlData.activity_pages || {};
   const repeatablePages = {};
   (tomlData.repeatable_activities || []).forEach((r) => {
@@ -880,6 +884,40 @@ app.get("/obsidian-config", (req, res) => {
   res.json({ configured: !!getVaultDir(), vaultName: getVaultName() });
 });
 
+// Native file dialog: osascript on macOS, kdialog or zenity on Linux.
+// All of these exit with code 1 when the user cancels.
+function hasCommand(cmd) {
+  return (process.env.PATH || "").split(path.delimiter).some((dir) => {
+    try { fs.accessSync(path.join(dir, cmd), fs.constants.X_OK); return true; } catch { return false; }
+  });
+}
+
+async function pickFile(startDir, creating, activityName) {
+  const defaultFile = path.join(startDir, `${activityName}.md`);
+  let cmd, args;
+  if (process.platform === "darwin") {
+    const script = creating
+      ? `POSIX path of (choose file name with prompt "Create a new Obsidian note" default name "${activityName}.md" default location POSIX file "${startDir}")`
+      : `POSIX path of (choose file with prompt "Select an Obsidian note" default location POSIX file "${startDir}")`;
+    cmd = "osascript";
+    args = ["-e", script];
+  } else if (hasCommand("kdialog")) {
+    cmd = "kdialog";
+    args = creating
+      ? ["--title", "Create a new Obsidian note", "--getsavefilename", defaultFile, "Markdown (*.md)"]
+      : ["--title", "Select an Obsidian note", "--getopenfilename", startDir, "Markdown (*.md)"];
+  } else if (hasCommand("zenity")) {
+    cmd = "zenity";
+    args = creating
+      ? ["--file-selection", "--save", "--confirm-overwrite", "--title=Create a new Obsidian note", `--filename=${defaultFile}`, "--file-filter=Markdown | *.md"]
+      : ["--file-selection", "--title=Select an Obsidian note", `--filename=${startDir}/`, "--file-filter=Markdown | *.md"];
+  } else {
+    throw new Error("No file picker available (install kdialog or zenity).");
+  }
+  const { stdout } = await execFileAsync(cmd, args);
+  return stdout.trim();
+}
+
 app.get("/obsidian-note/pick", async (req, res) => {
   const vaultDir = getVaultDir();
   if (!vaultDir) return res.status(400).json({ error: "Vault not configured." });
@@ -890,11 +928,7 @@ app.get("/obsidian-note/pick", async (req, res) => {
     let realVaultDir = vaultDir;
     try { realVaultDir = fs.realpathSync(vaultDir); } catch {}
 
-    const script = creating
-      ? `POSIX path of (choose file name with prompt "Create a new Obsidian note" default name "${activityName}.md" default location POSIX file "${realVaultDir}")`
-      : `POSIX path of (choose file with prompt "Select an Obsidian note" default location POSIX file "${realVaultDir}")`;
-    const { stdout } = await execFileAsync("osascript", ["-e", script]);
-    const fullPath = stdout.trim();
+    const fullPath = await pickFile(realVaultDir, creating, activityName);
     let relative = path.relative(realVaultDir, fullPath);
     if (relative.endsWith(".md")) relative = relative.slice(0, -3);
     res.json({ path: relative });
